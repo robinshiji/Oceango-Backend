@@ -150,6 +150,12 @@ class CustomerViewSet(viewsets.ModelViewSet):
             
             for index, row in df.iterrows():
                 customer_id = str(row['customer id']).strip() if pd.notna(row['customer id']) else ''
+                if customer_id:
+                    if customer_id.upper().startswith('OG-'):
+                        customer_id = 'OG-' + customer_id[3:]
+                    else:
+                        customer_id = f"OG-{customer_id}"
+                        
                 address = str(row['address']).strip() if pd.notna(row['address']) else ''
                 name_and_contact = str(row['name&contact']).strip() if pd.notna(row['name&contact']) else ''
                 
@@ -216,6 +222,15 @@ class ParcelViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         parcel = serializer.save()
         
+        request = self.request
+        receiver_customer_id = request.data.get('receiver_customer_id', '')
+        if receiver_customer_id:
+            receiver_customer_id = str(receiver_customer_id).strip()
+            if receiver_customer_id.upper().startswith('OG-'):
+                receiver_customer_id = 'OG-' + receiver_customer_id[3:]
+            else:
+                receiver_customer_id = f"OG-{receiver_customer_id}"
+        
         # Automatically create or update a Customer record for the receiver
         if parcel.receiver_name and parcel.receiver_phone:
             customer = Customer.objects.filter(phone=parcel.receiver_phone).first()
@@ -228,10 +243,12 @@ class ParcelViewSet(viewsets.ModelViewSet):
                     customer.hub = parcel.destination_hub or parcel.origin_hub
                 customer.save()
             else:
-                # Create a new permanent Customer ID
-                new_customer_id = f"OG-C{str(Customer.objects.count() + 1000)}"
+                # Require a manual Customer ID
+                if not receiver_customer_id:
+                    raise serializers.ValidationError({"receiver_customer_id": "Receiver Customer ID is required for new customers."})
+                    
                 Customer.objects.create(
-                    tracking_id=new_customer_id,
+                    tracking_id=receiver_customer_id,
                     name=parcel.receiver_name,
                     phone=parcel.receiver_phone,
                     address=parcel.receiver_address,

@@ -16,6 +16,14 @@ class CustomerSerializer(serializers.ModelSerializer):
         model = Customer
         fields = '__all__'
 
+    def validate_tracking_id(self, value):
+        if value:
+            value = str(value).strip()
+            if value.upper().startswith('OG-'):
+                return 'OG-' + value[3:]
+            return f"OG-{value}"
+        return value
+
 class ParcelSerializer(serializers.ModelSerializer):
     sender_name = serializers.CharField(source='sender.name', read_only=True)
     sender_phone = serializers.CharField(source='sender.phone', read_only=True)
