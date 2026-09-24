@@ -151,10 +151,14 @@ class CustomerViewSet(viewsets.ModelViewSet):
             for index, row in df.iterrows():
                 customer_id = str(row['customer id']).strip() if pd.notna(row['customer id']) else ''
                 if customer_id:
-                    if customer_id.upper().startswith('OG-'):
-                        customer_id = 'OG-' + customer_id[3:]
-                    else:
-                        customer_id = f"OG-{customer_id}"
+                    base_id = customer_id
+                    if base_id.upper().startswith('OG-'):
+                        base_id = base_id[3:]
+                    
+                    if not base_id.isdigit():
+                        return Response({"error": f"Customer ID must be an integer (found: {customer_id})"}, status=status.HTTP_400_BAD_REQUEST)
+                        
+                    customer_id = f"OG-{base_id}"
                         
                 address = str(row['address']).strip() if pd.notna(row['address']) else ''
                 name_and_contact = str(row['name&contact']).strip() if pd.notna(row['name&contact']) else ''
@@ -226,10 +230,15 @@ class ParcelViewSet(viewsets.ModelViewSet):
         receiver_customer_id = request.data.get('receiver_customer_id', '')
         if receiver_customer_id:
             receiver_customer_id = str(receiver_customer_id).strip()
-            if receiver_customer_id.upper().startswith('OG-'):
-                receiver_customer_id = 'OG-' + receiver_customer_id[3:]
-            else:
-                receiver_customer_id = f"OG-{receiver_customer_id}"
+            
+            base_id = receiver_customer_id
+            if base_id.upper().startswith('OG-'):
+                base_id = base_id[3:]
+                
+            if not base_id.isdigit():
+                raise serializers.ValidationError({"receiver_customer_id": "Receiver Customer ID must be an integer."})
+                
+            receiver_customer_id = f"OG-{base_id}"
         
         # Automatically create or update a Customer record for the receiver
         if parcel.receiver_name and parcel.receiver_phone:
