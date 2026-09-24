@@ -27,6 +27,7 @@ class CustomerSerializer(serializers.ModelSerializer):
 class ParcelSerializer(serializers.ModelSerializer):
     sender_name = serializers.CharField(source='sender.name', read_only=True)
     sender_phone = serializers.CharField(source='sender.phone', read_only=True)
+    sender_tracking_id = serializers.CharField(source='sender.tracking_id', read_only=True)
     
     class Meta:
         model = Parcel

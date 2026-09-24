@@ -35,10 +35,10 @@ class User(AbstractUser):
 
 class Customer(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    tracking_id = models.CharField(max_length=100, unique=True, null=True, blank=True)
+    tracking_id = models.CharField(max_length=100, null=True, blank=True)
     hub = models.ForeignKey(Hub, on_delete=models.SET_NULL, null=True, blank=True, related_name='customers')
     name = models.CharField(max_length=255)
-    phone = models.CharField(max_length=20, unique=True)
+    phone = models.CharField(max_length=20)
     email = models.EmailField(null=True, blank=True)
     address = models.TextField()
     city = models.CharField(max_length=100)
@@ -56,6 +56,9 @@ class Customer(models.Model):
 
     def __str__(self):
         return self.name
+
+    class Meta:
+        unique_together = (('phone', 'hub'), ('tracking_id', 'hub'))
 
 class Parcel(models.Model):
     STATUS_CHOICES = [

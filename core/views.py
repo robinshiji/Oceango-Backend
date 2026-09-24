@@ -32,6 +32,34 @@ class CustomerViewSet(viewsets.ModelViewSet):
     serializer_class = CustomerSerializer
     permission_classes = [IsAuthenticated]
 
+    def create(self, request, *args, **kwargs):
+        phone = request.data.get('phone')
+        hub_id = request.data.get('hub')
+        
+        if phone and hub_id:
+            existing_customer = Customer.objects.filter(phone=phone, hub_id=hub_id).first()
+            if existing_customer:
+                if existing_customer.deleted_at:
+                    existing_customer.deleted_at = None
+                    existing_customer.save()
+                    
+                serializer = self.get_serializer(existing_customer, data=request.data, partial=True)
+                serializer.is_valid(raise_exception=True)
+                self.perform_update(serializer)
+                return Response(serializer.data, status=status.HTTP_200_OK)
+                
+        return super().create(request, *args, **kwargs)
+
+    def perform_update(self, serializer):
+        instance = serializer.save()
+        # Sync changes to all linked parcels (which acts as the receiver in the UI)
+        if instance.sent_parcels.exists():
+            instance.sent_parcels.update(
+                receiver_name=instance.name,
+                receiver_phone=instance.phone,
+                receiver_address=instance.address
+            )
+
     @action(detail=False, methods=['post'])
     def bulk_delete(self, request):
         ids = request.data.get('ids', [])
@@ -242,7 +270,10 @@ class ParcelViewSet(viewsets.ModelViewSet):
         
         # Automatically create or update a Customer record for the receiver
         if parcel.receiver_name and parcel.receiver_phone:
-            customer = Customer.objects.filter(phone=parcel.receiver_phone).first()
+            customer = Customer.objects.filter(
+                phone=parcel.receiver_phone, 
+                hub=parcel.destination_hub or parcel.origin_hub
+            ).first()
             if customer:
                 # Do NOT overwrite their tracking_id. It is their permanent Customer ID.
                 customer.name = parcel.receiver_name
